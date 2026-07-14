@@ -357,6 +357,16 @@ function bindSaveButtonEvents(filteredStudents) {
                     filterMonth.value = month;
                 }
 
+                if (!filterYear.value) {
+                    filterYear.value = String(new Date().getFullYear());
+                }
+
+                const semesterSelect = document.getElementById('semesterSelect');
+                if (semesterSelect && !semesterSelect.dataset.initialized) {
+                    semesterSelect.value = new Date().getMonth() < 6 ? '2' : '1';
+                    semesterSelect.dataset.initialized = 'true';
+                }
+
                 if (!adminDataFetched) {
                     Promise.all([
                         fetchAttendanceData(),
@@ -411,4 +421,24 @@ function bindSaveButtonEvents(filteredStudents) {
         function stopRefreshAnimation(button) {
             const icon = button.querySelector('.refresh-icon');
             icon.classList.remove('spinning');
+        }
+
+        function populateYearFilter() {
+            const selectedYear = filterYear.value || String(new Date().getFullYear());
+            const years = new Set([String(new Date().getFullYear())]);
+
+            attendanceData.forEach(record => {
+                const match = String(record.date || '').match(/^(\d{4})-/);
+                if (match) years.add(match[1]);
+            });
+
+            filterYear.innerHTML = '<option value="">Pilih Tahun</option>' +
+                Array.from(years)
+                    .sort((a, b) => Number(b) - Number(a))
+                    .map(year => `<option value="${year}">${year}</option>`)
+                    .join('');
+
+            filterYear.value = years.has(selectedYear)
+                ? selectedYear
+                : String(new Date().getFullYear());
         }
