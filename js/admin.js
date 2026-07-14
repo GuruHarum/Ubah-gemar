@@ -1,4 +1,5 @@
 function filterAttendanceData() {
+            const year = filterYear.value;
             const month = filterMonth.value;
             const teacher = filterTeacher.value;
             const classNumber = filterClassNumber.value;
@@ -28,15 +29,15 @@ function filterAttendanceData() {
             const showMonthlyReport = month && (classNumber || className);
             
             if (showMonthlyReport) {
-                generateMonthlyReport(month, teacher, classNumber, className);
+                generateMonthlyReport(year, month, teacher, classNumber, className);
                 reportContainer.style.display = 'block';
             } else {
                 reportContainer.style.display = 'none';
             }
 
 filteredAttendanceData = attendanceData.filter(record => {
-    if (record.date !== getTodayDate()) return false;
-    if (month && !record.date.startsWith(`${new Date().getFullYear()}-${month}`)) return false;
+    if (year && !record.date.startsWith(`${year}-`)) return false;
+    if (month && !record.date.startsWith(`${year}-${month}`)) return false;
     if (teacher && record.teacher !== teacher) return false;
     if (className && className !== '') {
         if (record.class.toLowerCase() !== className.toLowerCase()) return false;
