@@ -1,0 +1,4 @@
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw2itMBTKF49ugT-xbEUY1PI_Tpgg89W3Wmy8gB4bCv0XWNms0mXo-zHQYmoqZx6IeuHA/exec';
+        const TEACHERS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQHe3xj3eFXdkpTyXGv9qgFhnQ-4aTcm-hN5BZ9i6r2rBZexI3UKxSbj9Gf1yZRAEDH9IzUFZMt30-p/pub?output=csv';
+        const STUDENTS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRWg_n87htYnYMemNecpsPsqBHp2ie_jvrSYASwy-VowrDeA1QvlIwGc2y0LUgKoY5U38BR8eOpRjOa/pub?output=csv';
+        const ATTENDANCE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSss3RvFno19G-Vrf7yfmtE39NOHX-UON6FlrbdYi_MbJLkXkNyuQe7n2tAbsbgVlsbGp2dvZnUyYpw/pub?output=csv';
