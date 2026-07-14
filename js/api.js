@@ -212,6 +212,7 @@ async function saveAttendance(studentName, status, note, studentClass) {
                     status: record.status || record.Status || '',
                     note: record.note || record.catatan || record.Catatan || ''
                 }));
+                populateYearFilter();
                 
                 if (isAdmin) {
                     renderAdminData();
@@ -230,6 +231,7 @@ async function saveAttendance(studentName, status, note, studentClass) {
         }
 
         function checkAndUpdateMonthlyReport() {
+            const year = filterYear.value;
             const month = filterMonth.value;
             const teacher = filterTeacher.value;
             const classNumber = filterClassNumber.value;
@@ -237,6 +239,6 @@ async function saveAttendance(studentName, status, note, studentClass) {
             const showMonthlyReport = month && (classNumber || className);
             
             if (showMonthlyReport && reportContainer.style.display !== 'none') {
-                generateMonthlyReport(month, teacher, classNumber, className);
+                generateMonthlyReport(year, month, teacher, classNumber, className);
             }
         }
