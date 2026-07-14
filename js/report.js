@@ -9,8 +9,7 @@ function formatTanggalCetak(dateObj) {
     return `${hari} ${namaBulan} ${tahun}`;
 }
 
-function generateMonthlyReport(month, teacher, classNumber, className) {
-    const year = new Date().getFullYear();
+function generateMonthlyReport(year, month, teacher, classNumber, className) {
     const daysInMonth = getDaysInMonth(year, parseInt(month));
     const monthName = getMonthName(month);
 
@@ -155,12 +154,12 @@ function generateMonthlyReport(month, teacher, classNumber, className) {
 }
 
 function printAttendanceReport() {
+    const year = filterYear.value;
     const month = filterMonth.value;
     const teacher = filterTeacher.value;
     const classNumber = filterClassNumber.value;
     const className = filterClassName.value;
     const monthName = getMonthName(month);
-    const year = new Date().getFullYear();
     const now = new Date();
     const tanggalCetak = formatTanggalCetak(now);
     const reportTeacherText = teacher || 'Semua Guru';
@@ -288,24 +287,185 @@ function printAttendanceReport() {
     </div>
     `;
 
-    let win = window.open('', 'PrintReport', 'width=1000,height=700');
-    win.document.write('<html><head><title>Cetak Rekap Absensi</title>');
-    win.document.write('<style>@media print { #print-area { page-break-inside:avoid; width:297mm; min-height:210mm;} table{font-size:9pt;} }</style>');
+    const win = window.open('', 'PrintReport', 'width=1000,height=700');
+    if (!win) {
+        showNotification('error', 'Jendela cetak diblokir browser. Izinkan pop-up lalu coba lagi.');
+        return;
+    }
+
+    win.document.open();
+    win.document.write('<!DOCTYPE html><html><head><title>Cetak Rekap Absensi</title>');
+    win.document.write('<style>@page { size: A4 landscape; margin: 10mm; } body { margin: 0; } #print-area { width: 100%; } table { font-size: 9pt; } thead { display: table-header-group; } tr { page-break-inside: avoid; }</style>');
     win.document.write('</head><body>' + html + '</body></html>');
+    win.onload = function() {
+        win.focus();
+        win.print();
+    };
     win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 500); // beri waktu render
+}
+
+function getSemesterAttendanceSummary(year, semester) {
+    const attendanceIndex = createSemesterAttendanceIndex(year, semester);
+    const groups = new Map();
+
+    function ensureGroup(teacher, className) {
+        const classNumber = extractClassNumber(className);
+        const classKey = classNumber || className;
+        const classLabel = classNumber ? `Kelas ${classNumber}` : className;
+        const groupKey = `${teacher}|||${classKey}`;
+        if (!groups.has(groupKey)) {
+            groups.set(groupKey, {
+                teacher,
+                className: classLabel,
+                classKey,
+                students: new Map()
+            });
+        }
+        return groups.get(groupKey);
+    }
+
+    studentsData.forEach(student => {
+        const teacher = student['nama guru'];
+        const className = student.kelas;
+        const studentName = student['nama siswa'];
+        if (!teacher || !className || !studentName) return;
+
+        const group = ensureGroup(teacher, className);
+        if (!group.students.has(studentName)) {
+            group.students.set(studentName, { present: 0, total: 0 });
+        }
+    });
+
+    return Array.from(groups.values())
+        .map(group => {
+            const percentages = Array.from(group.students.keys())
+                .map(studentName => calculateSemesterStudentPercentage(year, semester, group, studentName, attendanceIndex));
+            return {
+                teacher: group.teacher,
+                className: group.className,
+                studentCount: percentages.length,
+                average: percentages.reduce((total, value) => total + value, 0) / (percentages.length || 1)
+            };
+        })
+        .sort((a, b) => a.teacher.localeCompare(b.teacher, 'id') || a.className.localeCompare(b.className, 'id', { numeric: true }));
+}
+
+function normalizeAttendanceValue(value) {
+    return String(value || '').trim().toLocaleLowerCase('id-ID');
+}
+
+function createSemesterAttendanceIndex(year, semester) {
+    const firstMonth = semester === '1' ? '07' : '01';
+    const lastMonth = semester === '1' ? '12' : '06';
+    const firstDate = `${year}-${firstMonth}-01`;
+    const lastDate = `${year}-${lastMonth}-31`;
+    const index = new Map();
+
+    attendanceData.forEach(record => {
+        const date = String(record.date || '');
+        if (date < firstDate || date > lastDate) return;
+
+        const key = [
+            date,
+            normalizeAttendanceValue(record.teacher),
+            normalizeAttendanceValue(extractClassNumber(record.class) || record.class),
+            normalizeAttendanceValue(record.student)
+        ].join('|');
+
+        // Menjaga perilaku sebelumnya: bila ada data ganda, gunakan catatan pertama.
+        if (!index.has(key)) index.set(key, normalizeAttendanceValue(record.status));
+    });
+
+    return index;
+}
+
+function calculateSemesterStudentPercentage(year, semester, group, studentName, attendanceIndex) {
+    const firstMonth = semester === '1' ? 7 : 1;
+    const lastMonth = semester === '1' ? 12 : 6;
+    const today = new Date();
+    const currentDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    let hadirCount = 0;
+    let sakitCount = 0;
+    let izinCount = 0;
+    let alphaCount = 0;
+    const normalizedTeacher = normalizeAttendanceValue(group.teacher);
+    const normalizedClass = normalizeAttendanceValue(group.classKey);
+    const normalizedStudent = normalizeAttendanceValue(studentName);
+
+    for (let month = firstMonth; month <= lastMonth; month++) {
+        const monthValue = String(month).padStart(2, '0');
+        const daysInMonth = getDaysInMonth(year, month);
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = `${year}-${monthValue}-${String(day).padStart(2, '0')}`;
+            if (dateStr > currentDate) continue;
+
+            const recordKey = [dateStr, normalizedTeacher, normalizedClass, normalizedStudent].join('|');
+            const status = attendanceIndex.get(recordKey);
+
+            if (status) {
+                if (status === 'hadir') hadirCount++;
+                else if (status === 'sakit') sakitCount++;
+                else if (status === 'izin') izinCount++;
+                else if (status === 'alpha') alphaCount++;
+            } else {
+                alphaCount++;
+            }
+        }
+    }
+
+    const totalDays = hadirCount + sakitCount + izinCount + alphaCount;
+    return totalDays > 0 ? (hadirCount / totalDays) * 100 : 0;
+}
+
+function exportSemesterAttendanceSummary() {
+    const { jsPDF } = window.jspdf;
+    const year = filterYear.value;
+    const semester = document.getElementById('semesterSelect').value;
+    const summary = getSemesterAttendanceSummary(year, semester);
+
+    if (summary.length === 0) {
+        showNotification('info', `Belum ada data absensi untuk Semester ${semester} tahun ${year}.`);
+        return;
+    }
+
+    const period = semester === '1' ? 'Juli - Desember' : 'Januari - Juni';
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    doc.setFontSize(15);
+    doc.text('LAPORAN RATA-RATA KEHADIRAN SEMESTER', pageWidth / 2, 18, { align: 'center' });
+    doc.setFontSize(11);
+    doc.text(`Semester ${semester} Tahun ${year} (${period})`, pageWidth / 2, 26, { align: 'center' });
+    doc.text('SDIT Harapan Umat Karawang', pageWidth / 2, 33, { align: 'center' });
+
+    doc.autoTable({
+        head: [['No.', 'Guru', 'Kelas', 'Jumlah Siswa', 'Rata-rata Kehadiran']],
+        body: summary.map((item, index) => [
+            index + 1,
+            item.teacher,
+            item.className,
+            item.studentCount,
+            `${item.average.toFixed(2)}%`
+        ]),
+        startY: 40,
+        theme: 'grid',
+        headStyles: { fillColor: [37, 99, 235] },
+        columnStyles: { 0: { halign: 'center', cellWidth: 12 }, 3: { halign: 'center' }, 4: { halign: 'right' } }
+    });
+
+    doc.save(`laporan_kehadiran_semester_${semester}_${year}.pdf`);
+    showNotification('success', 'Laporan rata-rata kehadiran semester berhasil diunduh.');
 }
 
 function exportAttendanceToPDF() {
     const { jsPDF } = window.jspdf;
+    const year = filterYear.value;
     const month = filterMonth.value;
     const teacher = filterTeacher.value;
     const classNumber = filterClassNumber.value;
     const className = filterClassName.value;
 
     const monthName = getMonthName(month);
-    const year = new Date().getFullYear();
     const now = new Date();
     const tanggalCetak = `${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()}`;
     const reportTeacherText = teacher || 'Semua Guru';
