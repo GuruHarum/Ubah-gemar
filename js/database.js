@@ -18,9 +18,20 @@ async function fetchAllRows(queryFactory, batchSize = 500) {
     return all;
 }
 
-// Cache master data di browser. Cache hanya dipakai untuk data siswa/guru,
-// bukan data absensi, karena status absensi harus selalu mengambil data terbaru.
-// TTL pendek menjaga aplikasi tetap ringan sekaligus membatasi data basi.
+async function getTeachers() {
+    return fetchAllRows(
+        () => supabase.from("teachers").select("*").order("nama"),
+        500
+    );
+}
+
+async function getStudents() {
+    return fetchAllRows(
+        () => supabase.from("students").select("*").order("kelas").order("nama siswa"),
+        500
+    );
+}
+
 async function getAttendance(filters = {}) {
     // Jika ada filter (date, teacher, class, student), ambil hanya yang cocok
     // filters contoh: { date: '2026-08-18', teacher: 'Nama Guru', class: '1A' }
@@ -107,10 +118,65 @@ async function getAttendance(filters = {}) {
                 return allFiltered;
             }
 
-            // Jangan pernah fallback ke seluruh tabel attendance.
-            // Pada data besar, itu justru dapat membuat browser/HP berat dan
-            // berpotensi membuat halaman reload atau gagal merender.
-            throw new Error("Gagal mengambil data absensi dengan filter yang dipilih.");
+            // Fallback: server-side filtered request failed (400 or other). Fetch all in pages then filter client-side.
+            console.warn('getAttendance: server-side filtered fetch failed, falling back to client-side filtering. This will fetch all attendance in pages then filter locally. filters=', filters);
+
+            const batchSize2 = 1000;
+            let from2 = 0;
+            let all = [];
+
+            while (true) {
+                const to = from2 + batchSize2 - 1;
+                const { data, error } = await supabase
+                    .from('attendance')
+                    .select('id,date,teacher,class,student,status,note')
+                    .order('date', { ascending: false })
+                    .range(from2, to);
+
+                if (error) {
+                    try {
+                        const serialized = JSON.stringify(error, Object.getOwnPropertyNames(error));
+                        console.error('getAttendance fallback full fetch error (serialized):', serialized);
+                    } catch (serr) {
+                        console.error('getAttendance fallback full fetch error (keys):', Object.getOwnPropertyNames(error));
+                        console.error('getAttendance fallback full fetch error (raw):', error);
+                    }
+                    console.error('getAttendance fallback chunk context:', { from: from2, to, filters });
+                    throw error;
+                }
+
+                console.log(`Fallback fetched chunk from ${from2} to ${to}: ${data ? data.length : 0}`);
+
+                if (!data || data.length === 0) break;
+                all = all.concat(data);
+                if (data.length < batchSize2) break;
+                from2 += batchSize2;
+            }
+
+            // client-side filter
+            const filtered = all.filter(rec => {
+                try {
+                    if (filters.date) return rec.date === filters.date;
+                    if (filters.date_from && filters.date_to) return rec.date >= filters.date_from && rec.date <= filters.date_to;
+                    if (filters.month && filters.year) {
+                        const m = String(filters.month).padStart(2, '0');
+                        const y = String(filters.year);
+                        const first = `${y}-${m}-01`;
+                        const lastDay = new Date(Number(y), Number(m), 0).getDate();
+                        const last = `${y}-${m}-${String(lastDay).padStart(2, '0')}`;
+                        return rec.date >= first && rec.date <= last;
+                    }
+                    if (filters.teacher && rec.teacher !== filters.teacher) return false;
+                    if (filters.class && rec.class !== filters.class) return false;
+                    if (filters.student && rec.student !== filters.student) return false;
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            });
+
+            console.log('getAttendance fallback filtered client total:', filtered.length, 'filters=', filters);
+            return filtered;
         }
 
         // Jika tidak ada filter, lakukan paging penuh seperti sebelumnya
@@ -173,7 +239,6 @@ async function getAttendance(filters = {}) {
         throw err;
     }
 }
-
 
 async function saveAttendance(record) {
 
