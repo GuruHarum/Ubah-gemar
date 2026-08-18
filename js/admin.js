@@ -65,47 +65,114 @@ async function filterAttendanceData() {
     const monthVal = filterMonth ? filterMonth.value : '';
     const teacherVal = filterTeacher ? filterTeacher.value : '';
     const classNumVal = filterClassNumber ? filterClassNumber.value : '';
+    const classNameVal = filterClassName ? filterClassName.value : '';
 
-    // Jika pengguna memilih bulan, fetch data untuk rentang bulan tersebut agar lengkap
+    /*
+     * PENTING:
+     * Untuk rekap bulanan, jangan mengambil seluruh tabel attendance lalu
+     * memfilter di browser. Query dibatasi di Supabase berdasarkan:
+     *   tahun + bulan + guru + tingkat/nama kelas.
+     *
+     * Dengan demikian data Juli 2026 tetap dapat diambil walaupun total
+     * attendance sudah jauh di atas 1.000 baris.
+     */
     if (monthVal) {
         const year = yearVal || new Date().getFullYear().toString();
-        const from = `${year}-${String(monthVal).padStart(2, '0')}-01`;
-        const lastDay = new Date(Number(year), Number(monthVal), 0).getDate();
-        const to = `${year}-${String(monthVal).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+        const month = String(monthVal).padStart(2, '0');
+        const from = `${year}-${month}-01`;
+        const lastDay = new Date(Number(year), Number(month), 0).getDate();
+        const to = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
+
+        const serverFilters = {
+            date_from: from,
+            date_to: to
+        };
+
+        if (teacherVal) {
+            serverFilters.teacher = teacherVal;
+        }
+
+        // Jika nama kelas dipilih, gunakan kelas yang tepat.
+        // Jika hanya tingkat yang dipilih, Supabase akan mengambil semua
+        // nama kelas yang diawali nomor tingkat tersebut.
+        if (classNameVal) {
+            serverFilters.class = classNameVal;
+        } else if (classNumVal) {
+            serverFilters.class_number = classNumVal;
+        }
 
         try {
-            await fetchAttendanceData({ date_from: from, date_to: to });
+            await fetchAttendanceData(serverFilters);
         } catch (e) {
-            console.error('Gagal fetch data untuk filter bulan:', e);
+            console.error('Gagal fetch data rekap dari Supabase:', e);
+            filteredAttendanceData = [];
+            renderAdminData();
+            if (reportContainer) reportContainer.style.display = 'none';
+            return;
+        }
+    } else {
+        // Tanpa filter bulan, perilaku lama tetap dipakai untuk daftar log.
+        // Rekap bulanan tidak masuk jalur ini.
+        try {
+            await fetchAttendanceData();
+        } catch (e) {
+            console.error('Gagal mengambil data attendance:', e);
+            filteredAttendanceData = [];
+            renderAdminData();
+            return;
         }
     }
 
-    filteredAttendanceData = attendanceData.filter(item => {
+    /*
+     * Filter lokal hanya sebagai validasi tambahan. Data utama sudah
+     * dipersempit di server sehingga browser tidak perlu memproses seluruh
+     * tabel attendance.
+     */
+    filteredAttendanceData = (Array.isArray(attendanceData) ? attendanceData : []).filter(item => {
+        if (!item) return false;
+
+        const itemDate = String(item.date || '').slice(0, 10);
         let match = true;
-        const itemDate = new Date(item.date);
-        
-        if (yearVal && itemDate.getFullYear().toString() !== yearVal) match = false;
-        if (monthVal && (itemDate.getMonth() + 1).toString().padStart(2, '0') !== monthVal) match = false;
-        if (teacherVal && item.guru_id?.toString() !== teacherVal) match = false;
-        if (classNumVal && item.kelas_tingkat?.toString() !== classNumVal) match = false;
-        
+
+        if (yearVal && itemDate.slice(0, 4) !== String(yearVal)) {
+            match = false;
+        }
+
+        if (monthVal && itemDate.slice(5, 7) !== String(monthVal).padStart(2, '0')) {
+            match = false;
+        }
+
+        const itemTeacher = String(item.teacher || item.nama_guru || '').trim();
+        const itemClass = String(item.class || item.kelas_nama || item.kelas || '').trim();
+
+        if (teacherVal && itemTeacher !== teacherVal) {
+            match = false;
+        }
+
+        if (classNameVal && itemClass.toLowerCase() !== classNameVal.toLowerCase()) {
+            match = false;
+        } else if (classNumVal) {
+            const matchClassNumber = itemClass.match(/\d+/);
+            if (!matchClassNumber || matchClassNumber[0] !== String(classNumVal)) {
+                match = false;
+            }
+        }
+
         return match;
     });
 
     currentPage = 1;
-    renderAdminData(); // Render data log reguler terlebih dahulu
-    
-    // Halaman admin memiliki renderer rekap modern sendiri di admin.html.
-    // Jangan jalankan renderer lama juga: selain menggandakan pekerjaan, versi
-    // lama bergantung pada buildAttendanceMap yang tidak tersedia di halaman ini.
+    renderAdminData();
+
     if (monthVal && reportContainer) {
-        if (typeof window.renderMonthlyReportTable !== 'function') {
-            reportContainer.style.display = 'block';
-            if (typeof renderAdminTable === 'function') {
-                renderAdminTable();
-            } else if (typeof generateMonthlyReport === 'function') {
-                generateMonthlyReport();
-            }
+        reportContainer.style.display = 'block';
+
+        if (typeof window.renderMonthlyReportTable === 'function') {
+            window.renderMonthlyReportTable();
+        } else if (typeof renderAdminTable === 'function') {
+            renderAdminTable();
+        } else if (typeof generateMonthlyReport === 'function') {
+            generateMonthlyReport();
         }
     } else if (reportContainer) {
         reportContainer.style.display = 'none';
@@ -175,7 +242,9 @@ function renderAdminTable() {
     const classNumber = (filterClassNumber) ? filterClassNumber.value : '';
     const className = (filterClassName) ? filterClassName.value : '';
 
-    const year = new Date().getFullYear();
+    const year = (filterYear && filterYear.value)
+        ? parseInt(filterYear.value, 10)
+        : new Date().getFullYear();
     const daysInMonth = new Date(year, parseInt(month) || 1, 0).getDate();
 
     const todayObj = new Date();
@@ -257,9 +326,18 @@ function renderAdminTable() {
     const attendanceMap = new Map();
     listAbsensi.forEach(record => {
         if (!record) return;
+
         const date = formatDateToYYYYMMDD(record.date || record.tanggal);
         const student = safeLowerCase(record.nama_siswa || record.student || record.student_name);
-        if (date && student) attendanceMap.set(`${date}|${student}`, record);
+        const recordTeacher = safeLowerCase(record.teacher || record.nama_guru || record.teacher_name);
+        const recordClass = safeLowerCase(record.class || record.kelas_nama || record.kelas);
+
+        if (date && student) {
+            attendanceMap.set(
+                `${date}|${recordTeacher}|${student}|${recordClass}`,
+                record
+            );
+        }
     });
 
     filteredStudents.forEach((student, index) => {
@@ -272,7 +350,16 @@ function renderAdminTable() {
         for (let day = 1; day <= daysInMonth; day++) {
             const dateStr = `${year}-${month}-${String(day).padStart(2, '0')}`;
 
-            const record = attendanceMap.get(`${dateStr}|${safeLowerCase(studentName)}`);
+            const studentTeacher = safeLowerCase(
+                student['nama guru'] || student.nama_guru || teacher
+            );
+            const studentClass = safeLowerCase(
+                student.kelas || student.kelas_nama || className
+            );
+
+            const record = attendanceMap.get(
+                `${dateStr}|${studentTeacher}|${safeLowerCase(studentName)}|${studentClass}`
+            );
 
             let statusCode = '';
             let bgClass = ''; 

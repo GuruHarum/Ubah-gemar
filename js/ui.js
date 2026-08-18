@@ -334,7 +334,7 @@ async function renderStudents() {
                                          <p class="text-sm text-gray-600 mb-1">Catatan:</p>
                                          <p class="text-gray-800">${recordedData.note || '-'}</p>
                                      </div>
-                                      ${(typeof isAdmin !== 'undefined' && isAdmin) || localStorage.getItem('isAdminLoggedIn') === 'true' ? `
+=== 'true' ? `
                                         <div class="flex gap-2 mt-3">
                                             <button type="button" class="edit-attendance-btn p-2 rounded-md text-blue-700 hover:bg-blue-50" data-attendance-id="${recordedData.id}" title="Edit">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -392,7 +392,7 @@ function bindAttendanceEditEvents() {
     // Buka modal edit saat ikon edit diklik
     document.querySelectorAll('.edit-attendance-btn').forEach(button => {
         button.addEventListener('click', function() {
-            if ((typeof isAdmin === 'undefined' || !isAdmin) && localStorage.getItem('isAdminLoggedIn') !== 'true') return;
+return;
             const record = (typeof attendanceData !== 'undefined' ? attendanceData : []).find(item => String(item.id) === this.dataset.attendanceId);
             if (!record) return showNotification('error', 'Data absensi tidak ditemukan. Silakan muat ulang halaman.');
 
@@ -427,7 +427,7 @@ function bindAttendanceEditEvents() {
     if (form && !form.dataset.bound) {
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
-            if ((typeof isAdmin === 'undefined' || !isAdmin) && localStorage.getItem('isAdminLoggedIn') !== 'true') return;
+return;
 
             const id = document.getElementById('attendanceEditId').value;
             const status = document.getElementById('attendanceEditStatus').value;
@@ -462,7 +462,7 @@ function bindAttendanceEditEvents() {
     const modalDeleteBtn = document.getElementById('deleteAttendanceBtn');
     if (modalDeleteBtn && !modalDeleteBtn.dataset.bound) {
         modalDeleteBtn.addEventListener('click', function() {
-            if ((typeof isAdmin === 'undefined' || !isAdmin) && localStorage.getItem('isAdminLoggedIn') !== 'true') return;
+return;
             const id = document.getElementById('attendanceEditId').value;
             if (!id) return showNotification('error', 'ID absensi tidak ditemukan.');
 
@@ -494,7 +494,7 @@ function bindAttendanceEditEvents() {
     const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
     if (confirmDeleteBtn && !confirmDeleteBtn.dataset.bound) {
         confirmDeleteBtn.addEventListener('click', async function() {
-            if ((typeof isAdmin === 'undefined' || !isAdmin) && localStorage.getItem('isAdminLoggedIn') !== 'true') return;
+return;
             const id = document.getElementById('attendanceEditId').value;
             if (!id) return showNotification('error', 'ID absensi tidak ditemukan.');
 

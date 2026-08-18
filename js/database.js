@@ -21,72 +21,6 @@ async function fetchAllRows(queryFactory, batchSize = 500) {
 // Cache master data di browser. Cache hanya dipakai untuk data siswa/guru,
 // bukan data absensi, karena status absensi harus selalu mengambil data terbaru.
 // TTL pendek menjaga aplikasi tetap ringan sekaligus membatasi data basi.
-const MASTER_CACHE_TTL = 2 * 60 * 1000; // 2 menit
-const MASTER_CACHE_PREFIX = "absengemarmengaji_master_v2_";
-
-function readMasterCache(key) {
-    try {
-        const raw = localStorage.getItem(MASTER_CACHE_PREFIX + key);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        if (!parsed || !Array.isArray(parsed.data) || !parsed.savedAt) return null;
-        if (Date.now() - parsed.savedAt > MASTER_CACHE_TTL) return null;
-        return parsed.data;
-    } catch (error) {
-        console.warn("Cache master data tidak dapat dibaca:", error);
-        return null;
-    }
-}
-
-function writeMasterCache(key, data) {
-    try {
-        localStorage.setItem(MASTER_CACHE_PREFIX + key, JSON.stringify({
-            savedAt: Date.now(),
-            data
-        }));
-    } catch (error) {
-        // Quota/storage penuh tidak boleh membuat aplikasi berhenti.
-        console.warn("Cache master data tidak dapat disimpan:", error);
-    }
-}
-
-function invalidateMasterCache(type) {
-    try {
-        if (!type || type === "students") localStorage.removeItem(MASTER_CACHE_PREFIX + "students");
-        if (!type || type === "teachers") localStorage.removeItem(MASTER_CACHE_PREFIX + "teachers");
-    } catch (error) {
-        console.warn("Gagal menghapus cache master data:", error);
-    }
-}
-
-async function getTeachers(forceRefresh = false) {
-    if (!forceRefresh) {
-        const cached = readMasterCache("teachers");
-        if (cached) return cached;
-    }
-
-    const data = await fetchAllRows(
-        () => supabase.from("teachers").select("*").order("nama"),
-        500
-    );
-    writeMasterCache("teachers", data);
-    return data;
-}
-
-async function getStudents(forceRefresh = false) {
-    if (!forceRefresh) {
-        const cached = readMasterCache("students");
-        if (cached) return cached;
-    }
-
-    const data = await fetchAllRows(
-        () => supabase.from("students").select("*").order("kelas").order("nama siswa"),
-        500
-    );
-    writeMasterCache("students", data);
-    return data;
-}
-
 async function getAttendance(filters = {}) {
     // Jika ada filter (date, teacher, class, student), ambil hanya yang cocok
     // filters contoh: { date: '2026-08-18', teacher: 'Nama Guru', class: '1A' }
@@ -117,6 +51,15 @@ async function getAttendance(filters = {}) {
                 }
                 if (filters.teacher) q = q.eq('teacher', filters.teacher);
                 if (filters.class) q = q.eq('class', filters.class);
+
+                // Filter tingkat langsung di Supabase.
+                // Nilai class di tabel attendance berupa nama kelas, misalnya
+                // "1 Bilal Bin Rabbah", sehingga tingkat 1 dicari dari prefix.
+                if (filters.class_number) {
+                    const classNumber = String(filters.class_number).trim();
+                    q = q.ilike('class', `${classNumber}%`);
+                }
+
                 if (filters.student) q = q.eq('student', filters.student);
 
                 q = q.order('date', { ascending: false }).range(from, to);
@@ -240,9 +183,6 @@ async function getAttendance(filters = {}) {
     }
 }
 
-
-// Dipanggil setelah CRUD master data agar halaman berikutnya tidak membaca cache lama.
-window.invalidateMasterCache = invalidateMasterCache;
 
 async function saveAttendance(record) {
 
