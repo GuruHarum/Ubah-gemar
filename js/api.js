@@ -14,7 +14,7 @@
     }
 
     try {
-        studentsData = await getStudents();
+        studentsData = await getStudents(forceRefresh);
         console.log("studentsData:", studentsData);
 
         // AMAN: Tandai data telah dimuat pada objek window global
