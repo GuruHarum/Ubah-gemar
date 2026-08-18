@@ -434,6 +434,35 @@ async function getTeacherByName(name) {
     return data;
 }
 
+
+// ============================================================
+// MASTER DATA: GURU & SISWA
+// ============================================================
+// Gunakan paging karena Supabase REST default membatasi hasil.
+// Kolom mengikuti struktur database aplikasi:
+// teachers: id, nama, foto
+// students: id, "nama siswa", "nama guru", kelas
+
+async function getTeachers() {
+    return fetchAllRows(
+        () => supabase
+            .from("teachers")
+            .select("id,nama,foto")
+            .order("nama", { ascending: true }),
+        500
+    );
+}
+
+async function getStudents(forceRefresh = false) {
+    return fetchAllRows(
+        () => supabase
+            .from("students")
+            .select('id,"nama siswa","nama guru",kelas')
+            .order("nama siswa", { ascending: true }),
+        500
+    );
+}
+
 async function getStudentsByClass(kelas) {
     return fetchAllRows(
         () => supabase
