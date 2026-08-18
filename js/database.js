@@ -243,11 +243,11 @@ async function fetchTeachers() {
         teachersData = await getTeachers();
         console.log("teachersData:", teachersData);
 
-        // AMAN: Hanya panggil renderTeachers jika fungsinya didefinisikan (ada di ui.js)
+        // Render setelah data guru benar-benar selesai dimuat.
         if (typeof renderTeachers === 'function') {
-            renderTeachers(); 
+            renderTeachers();
         } else {
-            console.log("Fungsi renderTeachers diabaikan di halaman ini.");
+            console.warn("renderTeachers belum tersedia saat fetchTeachers selesai.");
         }
 
     if (typeof populateTeacherDropdown === 'function') {
