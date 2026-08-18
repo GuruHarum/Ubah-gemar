@@ -367,21 +367,6 @@
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
         }
         
-        .monthly-report-scroll {
-            width: 100%;
-            max-width: 100%;
-            overflow-x: auto !important;
-            overflow-y: hidden;
-            -webkit-overflow-scrolling: touch;
-            overscroll-behavior-x: contain;
-            touch-action: pan-x;
-            scrollbar-width: thin;
-        }
-        .monthly-report-scroll .monthly-report-table {
-            width: max-content !important;
-            min-width: 1000px;
-        }
-
         .monthly-report-table {
             border-collapse: separate;
             border-spacing: 0;
@@ -705,7 +690,7 @@
         // Periksa mode maintenance yang diset lewat panel admin (disimpan di localStorage)
         (function(){
             try {
-=== '1';
+                const isMaintenance = localStorage.getItem('maintenanceMode') === '1';
                 if (isMaintenance) {
                     const mainEl = document.querySelector('main.container');
                     if (mainEl) {
@@ -902,7 +887,7 @@
                     </div>
                 </div>
                 
-                <div class="monthly-report-scroll rounded-xl" aria-label="Geser tabel rekap bulanan ke kiri atau kanan">
+                <div class="overflow-x-auto">
                     <table id="monthlyReportTable" class="monthly-report-table">
                         <!-- Monthly report will be generated here -->
                         <tr>
@@ -1145,7 +1130,7 @@
 
             // Status login disimpan di browser, sehingga admin tidak perlu
             // memasukkan kredensial lagi saat kembali membuka halaman ini.
-=== 'true';
+            isAdmin = localStorage.getItem('isAdminLoggedIn') === 'true';
 
             const loginBtnEl = document.getElementById('loginBtn');
             if (isAdmin && loginBtnEl) {
@@ -1153,6 +1138,7 @@
                     <a href="admin.html" class="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all">Panel Admin</a>
                     <button id="headerLogoutBtn" type="button" class="flex items-center gap-2 bg-red-500/90 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all">Logout</button>`;
                 document.getElementById('headerLogoutBtn').addEventListener('click', () => {
+                    localStorage.removeItem('isAdminLoggedIn');
                     isAdmin = false;
                     window.location.reload();
                 });
@@ -1177,6 +1163,7 @@
                     
                     if (username === 'admin' && password === 'gurutahta') {
                         isAdmin = true;
+                        localStorage.setItem('isAdminLoggedIn', 'true');
                         showNotification('success', 'Login berhasil!');
                         closeLoginModal();
                         showPage(3);
@@ -1198,6 +1185,7 @@
             if (logoutBtnEl) {
                 logoutBtnEl.addEventListener('click', function() {
                     isAdmin = false;
+                    localStorage.removeItem('isAdminLoggedIn');
                     adminDataFetched = false;
                     if (loginBtnEl) loginBtnEl.textContent = 'Login Admin';
                     showPage(1);

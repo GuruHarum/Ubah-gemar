@@ -27,31 +27,6 @@
         }
         @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
         
-        /* Rekap bulanan: tetap lebar agar semua tanggal terlihat dan bisa digeser di HP */
-        .monthly-report-scroll {
-            width: 100%;
-            max-width: 100%;
-            overflow-x: auto !important;
-            overflow-y: hidden;
-            -webkit-overflow-scrolling: touch;
-            overscroll-behavior-x: contain;
-            touch-action: pan-x;
-            scrollbar-width: thin;
-        }
-        .monthly-report-scroll table {
-            min-width: 1000px;
-            width: max-content !important;
-        }
-        @media (max-width: 768px) {
-            .monthly-report-scroll {
-                cursor: grab;
-                padding-bottom: 4px;
-            }
-            .monthly-report-scroll:active {
-                cursor: grabbing;
-            }
-        }
-
         .custom-scrollbar::-webkit-scrollbar {
             height: 8px;
         }
@@ -251,8 +226,8 @@
             </div>
 
             <!-- Table Container with Horizontal Scroll -->
-            <div class="monthly-report-scroll rounded-xl border border-slate-200 custom-scrollbar" aria-label="Geser tabel rekap bulanan ke kiri atau kanan">
-                <table id="monthlyReportTable" class="text-xs text-left border-collapse min-w-[1000px]">
+            <div class="overflow-x-auto rounded-xl border border-slate-200 custom-scrollbar">
+                <table id="monthlyReportTable" class="w-full text-xs text-left border-collapse min-w-[1000px]">
                     <!-- Digenerate oleh JS -->
                 </table>
             </div>
@@ -468,7 +443,7 @@
     <!-- EMBED LOGIKA OPERASIONAL ADMIN -->
     <script>
         // Validasi Proteksi Sesi Panel
-{
+        if (localStorage.getItem('isAdminLoggedIn') !== 'true') {
             window.location.href = 'login.html';
         }
 
@@ -1432,6 +1407,7 @@ async function exportAttendanceToPDF() {
 
         // Logout Panel
         document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.removeItem('isAdminLoggedIn');
             window.location.href = 'login.html';
         });
 
@@ -1463,6 +1439,8 @@ async function exportAttendanceToPDF() {
         function updateMaintenanceStatusUI() {
             const statusEl = document.getElementById('maintenanceStatus');
             if (!statusEl) return;
+            if (localStorage.getItem('maintenanceMode') === '1') {
+                statusEl.classList.remove('hidden');
                 statusEl.innerText = 'ON';
                 statusEl.classList.remove('text-green-400');
                 statusEl.classList.add('text-red-400');
@@ -1473,13 +1451,15 @@ async function exportAttendanceToPDF() {
         }
 
         function toggleMaintenance() {
-=== '1';
+            const isOn = localStorage.getItem('maintenanceMode') === '1';
             if (!isOn) {
+                localStorage.setItem('maintenanceMode', '1');
             } else {
+                localStorage.removeItem('maintenanceMode');
             }
             updateMaintenanceStatusUI();
             // Beri tahu admin perubahan berhasil
-=== '1' ? 'diaktifkan' : 'dinonaktifkan';
+            const msg = localStorage.getItem('maintenanceMode') === '1' ? 'diaktifkan' : 'dinonaktifkan';
             alert('Mode maintenance ' + msg + '. Halaman utama akan menampilkan status sesuai pengaturan.');
         }
 
@@ -2112,7 +2092,7 @@ async function handleFormSubmit(event) {
     const query = id ? supabase.from(table).update(payload).eq('id', id) : supabase.from(table).insert([payload]);
     const { error } = await query;
     if (error) return alert(`Gagal menyimpan data: ${error.message}`);
-        if (currentManageTab === 'guru') teachersData = await getTeachers(); else studentsData = await getStudents();
+    if (currentManageTab === 'guru') teachersData = await getTeachers(); else studentsData = await getStudents();
     closeManageModal();
     renderManageTable();
 }
@@ -2123,7 +2103,7 @@ async function deleteData(id) {
     const table = currentManageTab === 'guru' ? 'teachers' : 'students';
     const { error } = await supabase.from(table).delete().eq('id', id);
     if (error) return alert(`Gagal menghapus data: ${error.message}`);
-        if (currentManageTab === 'guru') teachersData = await getTeachers(); else studentsData = await getStudents();
+    if (currentManageTab === 'guru') teachersData = await getTeachers(); else studentsData = await getStudents();
     renderManageTable();
 }
 
@@ -2155,7 +2135,7 @@ async function importManageCsv() {
     const table = currentManageTab === 'guru' ? 'teachers' : 'students';
     const { error } = await supabase.from(table).insert(payload);
     if (error) return alert(`Impor gagal: ${error.message}`);
-        if (currentManageTab === 'guru') teachersData = await getTeachers(); else studentsData = await getStudents();
+    if (currentManageTab === 'guru') teachersData = await getTeachers(); else studentsData = await getStudents();
     document.getElementById('csvImportFile').value = '';
     renderManageTable();
     alert(`${payload.length} data berhasil diimpor.`);

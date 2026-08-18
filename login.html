@@ -81,6 +81,7 @@
             if (username === 'admin' && password === 'gurutahta') {
                 errorDiv.classList.add('hidden');
                 // Simpan status login sederhana di browser
+                localStorage.setItem('isAdminLoggedIn', 'true');
                 // Alihkan langsung secara fisik ke file halaman admin baru
                 window.location.href = 'admin.html';
             } else {
