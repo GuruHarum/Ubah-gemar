@@ -757,13 +757,17 @@
                 if (gate) gate.style.display = 'block';
             }
 
-            async function readMaintenance() {
+            async function readMaintenance(attempt = 0) {
                 try {
                     if (!window.supabase || !window.supabase.from) {
-                        // config.js belum menginisialisasi client Supabase karena
-                        // script maintenance berada sebelum file JS utama.
-                        // Coba lagi setelah script konfigurasi selesai.
-                        setTimeout(readMaintenance, 50);
+                        // config.js belum selesai. Tunggu sebentar, tetapi jangan
+                        // membuat halaman utama macet selamanya.
+                        if (attempt < 100) {
+                            setTimeout(() => readMaintenance(attempt + 1), 50);
+                        } else {
+                            console.warn('Supabase client belum tersedia; maintenance check dilewati.');
+                            showNormalPage();
+                        }
                         return;
                     }
 
@@ -774,13 +778,13 @@
                         .maybeSingle();
 
                     if (error) throw error;
+                    showNormalPage();
+
                     if (data && data.maintenance === true) {
                         showMaintenancePage();
-                    } else {
-                        showNormalPage();
                     }
                 } catch (error) {
-                    // Jika tabel belum dibuat / query gagal, jangan mengunci website.
+                    // Maintenance tidak boleh membuat halaman utama gagal dibuka.
                     console.warn('Maintenance check gagal:', error);
                     showNormalPage();
                 }
