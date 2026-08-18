@@ -467,10 +467,17 @@
     
     <!-- EMBED LOGIKA OPERASIONAL ADMIN -->
     <script>
-        // Validasi Proteksi Sesi Panel
-{
-            window.location.href = 'login.html';
-        }
+        // Validasi sesi admin.
+        // Login.html menyimpan penanda sesi sebelum masuk ke halaman ini.
+        (function enforceAdminSession() {
+            const loggedIn =
+                sessionStorage.getItem('adminLoggedIn') === 'true' ||
+                localStorage.getItem('adminLoggedIn') === 'true';
+
+            if (!loggedIn) {
+                window.location.replace('login.html');
+            }
+        })();
 
         let currentPage = 1;
         let recordsPerPage = 10;
@@ -1432,7 +1439,9 @@ async function exportAttendanceToPDF() {
 
         // Logout Panel
         document.getElementById('logoutBtn').addEventListener('click', () => {
-            window.location.href = 'login.html';
+            sessionStorage.removeItem('adminLoggedIn');
+            localStorage.removeItem('adminLoggedIn');
+            window.location.replace('login.html');
         });
 
         // Toggle Sidebar

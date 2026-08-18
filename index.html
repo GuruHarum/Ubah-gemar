@@ -760,7 +760,10 @@
             async function readMaintenance() {
                 try {
                     if (!window.supabase || !window.supabase.from) {
-                        showNormalPage();
+                        // config.js belum menginisialisasi client Supabase karena
+                        // script maintenance berada sebelum file JS utama.
+                        // Coba lagi setelah script konfigurasi selesai.
+                        setTimeout(readMaintenance, 50);
                         return;
                     }
 
@@ -804,7 +807,7 @@
             }
 
             if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', initMaintenance);
+                document.addEventListener('DOMContentLoaded', initMaintenance, { once: true });
             } else {
                 initMaintenance();
             }
