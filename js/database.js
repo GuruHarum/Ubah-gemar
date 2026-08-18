@@ -51,15 +51,6 @@ async function getAttendance(filters = {}) {
                 }
                 if (filters.teacher) q = q.eq('teacher', filters.teacher);
                 if (filters.class) q = q.eq('class', filters.class);
-
-                // Filter tingkat langsung di Supabase.
-                // Nilai class di tabel attendance berupa nama kelas, misalnya
-                // "1 Bilal Bin Rabbah", sehingga tingkat 1 dicari dari prefix.
-                if (filters.class_number) {
-                    const classNumber = String(filters.class_number).trim();
-                    q = q.ilike('class', `${classNumber}%`);
-                }
-
                 if (filters.student) q = q.eq('student', filters.student);
 
                 q = q.order('date', { ascending: false }).range(from, to);
@@ -243,11 +234,11 @@ async function fetchTeachers() {
         teachersData = await getTeachers();
         console.log("teachersData:", teachersData);
 
-        // Render setelah data guru benar-benar selesai dimuat.
+        // AMAN: Hanya panggil renderTeachers jika fungsinya didefinisikan (ada di ui.js)
         if (typeof renderTeachers === 'function') {
-            renderTeachers();
+            renderTeachers(); 
         } else {
-            console.warn("renderTeachers belum tersedia saat fetchTeachers selesai.");
+            console.log("Fungsi renderTeachers diabaikan di halaman ini.");
         }
 
     if (typeof populateTeacherDropdown === 'function') {
@@ -432,35 +423,6 @@ async function getTeacherByName(name) {
         throw error;
 
     return data;
-}
-
-
-// ============================================================
-// MASTER DATA: GURU & SISWA
-// ============================================================
-// Gunakan paging karena Supabase REST default membatasi hasil.
-// Kolom mengikuti struktur database aplikasi:
-// teachers: id, nama, foto
-// students: id, "nama siswa", "nama guru", kelas
-
-async function getTeachers() {
-    return fetchAllRows(
-        () => supabase
-            .from("teachers")
-            .select("id,nama,foto")
-            .order("nama", { ascending: true }),
-        500
-    );
-}
-
-async function getStudents(forceRefresh = false) {
-    return fetchAllRows(
-        () => supabase
-            .from("students")
-            .select('id,"nama siswa","nama guru",kelas')
-            .order("nama siswa", { ascending: true }),
-        500
-    );
 }
 
 async function getStudentsByClass(kelas) {

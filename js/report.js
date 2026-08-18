@@ -31,7 +31,7 @@ function buildAttendanceMap(records) {
     return map;
 }
 
-function generateMonthlyReport(month, teacher, classNumber, className, reportYear) {
+function generateMonthlyReport(month, teacher, classNumber, className) {
     // Ambil elemen DOM lokal dengan aman
     const filterMonthEl = getElSafe('filterMonth', 'filterMonth');
     const filterTeacherEl = getElSafe('filterTeacher', 'filterTeacher');
@@ -50,12 +50,7 @@ function generateMonthlyReport(month, teacher, classNumber, className, reportYea
     classNumber = classNumber || (filterClassNumberEl ? filterClassNumberEl.value : '');
     className = className || (filterClassNameEl ? filterClassNameEl.value : '');
 
-    const filterYearEl = getElSafe('filterYear', 'filterYear');
-    const year = Number(
-        reportYear ||
-        (filterYearEl ? filterYearEl.value : '') ||
-        new Date().getFullYear()
-    );
+    const year = new Date().getFullYear();
     const daysInMonth = getDaysInMonth(year, parseInt(month, 10));
     const monthName = getMonthName(month);
 
@@ -98,10 +93,8 @@ function generateMonthlyReport(month, teacher, classNumber, className, reportYea
 
     let totalPercent = 0;
 
-    // Bangun indeks sekali saja, bukan sekali untuk setiap siswa.
-    const attendanceMap = buildAttendanceMap(attendanceData);
-
     filteredStudents.forEach(student => {
+        const attendanceMap = buildAttendanceMap(attendanceData);
         const studentName = student['nama siswa'];
         const studentClass = student.kelas;
 
@@ -123,12 +116,24 @@ function generateMonthlyReport(month, teacher, classNumber, className, reportYea
                 continue;
             }
 
-            const studentTeacher = String(
-                teacher || student['nama guru'] || student.nama_guru || ''
-            ).trim();
+            let record = null;
 
-            const key = `${dateStr}|${studentName}|${studentTeacher}|${studentClass}`;
-            const record = attendanceMap.get(key);
+            if (className && className !== '') {
+                const key =
+    `${dateStr}|${studentName}|${teacher || record?.teacher}|${studentClass}`;
+
+const record = attendanceMap.get(key);
+            } else if (classNumber && classNumber !== '') {
+                const key =
+    `${dateStr}|${studentName}|${teacher || record?.teacher}|${studentClass}`;
+
+const record = attendanceMap.get(key);
+            } else {
+                const key =
+    `${dateStr}|${studentName}|${teacher || record?.teacher}|${studentClass}`;
+
+const record = attendanceMap.get(key);
+            }
 
             let statusCode = '-';
             let statusClass = 'status--';
