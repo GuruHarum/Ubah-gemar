@@ -467,17 +467,10 @@
     
     <!-- EMBED LOGIKA OPERASIONAL ADMIN -->
     <script>
-        // Validasi sesi admin.
-        // Login.html menyimpan penanda sesi sebelum masuk ke halaman ini.
-        (function enforceAdminSession() {
-            const loggedIn =
-                sessionStorage.getItem('adminLoggedIn') === 'true' ||
-                localStorage.getItem('adminLoggedIn') === 'true';
-
-            if (!loggedIn) {
-                window.location.replace('login.html');
-            }
-        })();
+        // Validasi Proteksi Sesi Panel
+{
+            window.location.href = 'login.html';
+        }
 
         let currentPage = 1;
         let recordsPerPage = 10;
@@ -1439,9 +1432,7 @@ async function exportAttendanceToPDF() {
 
         // Logout Panel
         document.getElementById('logoutBtn').addEventListener('click', () => {
-            sessionStorage.removeItem('adminLoggedIn');
-            localStorage.removeItem('adminLoggedIn');
-            window.location.replace('login.html');
+            window.location.href = 'login.html';
         });
 
         // Toggle Sidebar
@@ -1467,90 +1458,36 @@ async function exportAttendanceToPDF() {
                 }
             });
         }
-        // ==================== MODE MAINTENANCE GLOBAL ====================
-        // Status disimpan di Supabase sehingga semua perangkat melihat status yang sama.
-        const MAINTENANCE_ROW_ID = 1;
 
-        async function getMaintenanceStatus() {
-            try {
-                const { data, error } = await window.supabase
-                    .from('app_settings')
-                    .select('maintenance')
-                    .eq('id', MAINTENANCE_ROW_ID)
-                    .maybeSingle();
-
-                if (error) throw error;
-                return data?.maintenance === true;
-            } catch (error) {
-                console.error('Gagal membaca status maintenance:', error);
-                return false;
-            }
-        }
-
-        async function updateMaintenanceStatusUI() {
+        // ==================== MODE MAINTENANCE (Penyimpanan di localStorage) ====================
+        function updateMaintenanceStatusUI() {
             const statusEl = document.getElementById('maintenanceStatus');
             if (!statusEl) return;
-
-            const isOn = await getMaintenanceStatus();
-            statusEl.innerText = isOn ? 'ON' : 'OFF';
-            statusEl.classList.toggle('hidden', false);
-            statusEl.classList.toggle('text-red-400', isOn);
-            statusEl.classList.toggle('text-green-400', !isOn);
-        }
-
-        async function toggleMaintenance() {
-            const current = await getMaintenanceStatus();
-            const next = !current;
-
-            try {
-                const { error } = await window.supabase
-                    .from('app_settings')
-                    .update({
-                        maintenance: next,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', MAINTENANCE_ROW_ID);
-
-                if (error) throw error;
-
-                await updateMaintenanceStatusUI();
-
-                alert(
-                    next
-                        ? 'Mode maintenance DI AKTIFKAN. Halaman utama di semua perangkat sekarang menampilkan Maintenance.'
-                        : 'Mode maintenance DI NONAKTIFKAN. Halaman utama di semua perangkat kembali normal.'
-                );
-            } catch (error) {
-                console.error('Gagal mengubah mode maintenance:', error);
-                alert('Gagal mengubah mode maintenance. Pastikan tabel app_settings dan policy Supabase sudah dibuat.');
+                statusEl.innerText = 'ON';
+                statusEl.classList.remove('text-green-400');
+                statusEl.classList.add('text-red-400');
+            } else {
+                statusEl.classList.add('hidden');
+                statusEl.innerText = 'OFF';
             }
         }
 
-        async function subscribeMaintenanceAdmin() {
-            try {
-                await updateMaintenanceStatusUI();
-
-                window.supabase
-                    .channel('admin-maintenance')
-                    .on(
-                        'postgres_changes',
-                        { event: '*', schema: 'public', table: 'app_settings', filter: 'id=eq.1' },
-                        async () => {
-                            await updateMaintenanceStatusUI();
-                        }
-                    )
-                    .subscribe();
-            } catch (error) {
-                console.warn('Maintenance realtime admin gagal:', error);
+        function toggleMaintenance() {
+=== '1';
+            if (!isOn) {
+            } else {
             }
+            updateMaintenanceStatusUI();
+            // Beri tahu admin perubahan berhasil
+=== '1' ? 'diaktifkan' : 'dinonaktifkan';
+            alert('Mode maintenance ' + msg + '. Halaman utama akan menampilkan status sesuai pengaturan.');
         }
 
-        // Config Supabase dimuat sebelum script ini. Jalankan setelah DOM siap.
-        document.addEventListener('DOMContentLoaded', () => {
-            subscribeMaintenanceAdmin();
-        });
+        // Pastikan menampilkan status pada muat halaman
+        try { updateMaintenanceStatusUI(); } catch (e) { /* ignore */ }
 
-// ==================== STATE MANAJEMEN LOKAL ====================
+
+    // ==================== STATE MANAJEMEN LOKAL ====================
 let currentManageTab = 'siswa';
 let editingIndex = null;
 

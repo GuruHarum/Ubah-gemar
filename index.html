@@ -677,7 +677,7 @@
         }
     </style>
 </head>
-<body class="maintenance-checking">
+<body>
     <!-- Loading Indicator -->
     <div id="loadingIndicator" class="loading-indicator">
         <div class="loading-spinner"></div>
@@ -701,120 +701,23 @@
         </div>
     </header>
 
-    <!-- GLOBAL MAINTENANCE GATE: status dibaca dari Supabase agar berlaku di semua perangkat. -->
-    <style>
-        #maintenanceGate {
-            display: none;
-            position: fixed;
-            inset: 0;
-            z-index: 99999;
-            background: #f8fafc;
-            overflow-y: auto;
-        }
-        #maintenanceGate .maintenance-card {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 32px 16px;
-        }
-        body.maintenance-checking > header,
-        body.maintenance-checking > main,
-        body.maintenance-active > header,
-        body.maintenance-active > main {
-            display: none !important;
-        }
-    </style>
-    <div id="maintenanceGate">
-        <div class="maintenance-card">
-            <div class="max-w-xl w-full text-center bg-white rounded-3xl shadow-xl border border-gray-100 p-8 md:p-12">
-                <div class="mx-auto mb-6 w-20 h-20 rounded-full bg-amber-100 flex items-center justify-center text-4xl">🛠️</div>
-                <h2 class="text-3xl font-bold text-gray-800 mb-3">Website Sedang Maintenance</h2>
-                <p class="text-gray-600 leading-relaxed mb-6">
-                    Sistem absensi sedang dalam pemeliharaan. Silakan kembali beberapa saat lagi.
-                </p>
-                <a href="login.html" class="inline-flex items-center justify-center px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors">
-                    Login Admin
-                </a>
-            </div>
-        </div>
-    </div>
     <script>
-        // Jangan gunakan localStorage. Status maintenance adalah global di Supabase.
-        (function () {
-            const GATE_ID = 'maintenanceGate';
-
-            function showNormalPage() {
-                document.body.classList.remove('maintenance-checking', 'maintenance-active');
-                const gate = document.getElementById(GATE_ID);
-                if (gate) gate.style.display = 'none';
-            }
-
-            function showMaintenancePage() {
-                document.body.classList.remove('maintenance-checking');
-                document.body.classList.add('maintenance-active');
-                const gate = document.getElementById(GATE_ID);
-                if (gate) gate.style.display = 'block';
-            }
-
-            async function readMaintenance(attempt = 0) {
-                try {
-                    if (!window.supabase || !window.supabase.from) {
-                        // config.js belum selesai. Tunggu sebentar, tetapi jangan
-                        // membuat halaman utama macet selamanya.
-                        if (attempt < 100) {
-                            setTimeout(() => readMaintenance(attempt + 1), 50);
-                        } else {
-                            console.warn('Supabase client belum tersedia; maintenance check dilewati.');
-                            showNormalPage();
-                        }
-                        return;
+        // Periksa mode maintenance yang diset lewat panel admin (disimpan di localStorage)
+        (function(){
+            try {
+=== '1';
+                if (isMaintenance) {
+                    const mainEl = document.querySelector('main.container');
+                    if (mainEl) {
+                        mainEl.innerHTML = `
+                            <div class="container mx-auto px-4 py-20 text-center">
+                                <h2 class="text-3xl font-bold text-gray-800 mb-4">Maintenance sedang berlangsung</h2>
+                                <p class="text-gray-600 mb-6">Website sedang dalam pemeliharaan. Silakan coba kembali nanti.</p>
+                            </div>
+                        `;
                     }
-
-                    const { data, error } = await window.supabase
-                        .from('app_settings')
-                        .select('maintenance')
-                        .eq('id', 1)
-                        .maybeSingle();
-
-                    if (error) throw error;
-                    showNormalPage();
-
-                    if (data && data.maintenance === true) {
-                        showMaintenancePage();
-                    }
-                } catch (error) {
-                    // Maintenance tidak boleh membuat halaman utama gagal dibuka.
-                    console.warn('Maintenance check gagal:', error);
-                    showNormalPage();
                 }
-            }
-
-            async function initMaintenance() {
-                document.body.classList.add('maintenance-checking');
-                await readMaintenance();
-
-                // Dengarkan perubahan dari admin/perangkat lain.
-                if (window.supabase && window.supabase.channel) {
-                    window.supabase
-                        .channel('global-maintenance')
-                        .on(
-                            'postgres_changes',
-                            { event: '*', schema: 'public', table: 'app_settings', filter: 'id=eq.1' },
-                            (payload) => {
-                                const enabled = payload?.new?.maintenance === true;
-                                enabled ? showMaintenancePage() : showNormalPage();
-                            }
-                        )
-                        .subscribe();
-                }
-            }
-
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', initMaintenance, { once: true });
-            } else {
-                initMaintenance();
-            }
+            } catch (e) { console.error('Maintenance check error', e); }
         })();
     </script>
 

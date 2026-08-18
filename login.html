@@ -80,13 +80,9 @@
             // Menggunakan kredensial yang sama dengan sistem lama Anda
             if (username === 'admin' && password === 'gurutahta') {
                 errorDiv.classList.add('hidden');
-
-                // Simpan sesi login agar admin.html tidak menganggap pengguna
-                // belum login setelah redirect.
-                sessionStorage.setItem('adminLoggedIn', 'true');
-                localStorage.setItem('adminLoggedIn', 'true');
-
-                window.location.replace('admin.html');
+                // Simpan status login sederhana di browser
+                // Alihkan langsung secara fisik ke file halaman admin baru
+                window.location.href = 'admin.html';
             } else {
                 errorDiv.classList.remove('hidden');
             }
