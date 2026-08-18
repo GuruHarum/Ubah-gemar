@@ -367,6 +367,21 @@
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
         }
         
+        .monthly-report-scroll {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto !important;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-x: contain;
+            touch-action: pan-x;
+            scrollbar-width: thin;
+        }
+        .monthly-report-scroll .monthly-report-table {
+            width: max-content !important;
+            min-width: 1000px;
+        }
+
         .monthly-report-table {
             border-collapse: separate;
             border-spacing: 0;
@@ -662,7 +677,7 @@
         }
     </style>
 </head>
-<body>
+<body class="maintenance-checking">
     <!-- Loading Indicator -->
     <div id="loadingIndicator" class="loading-indicator">
         <div class="loading-spinner"></div>
@@ -686,23 +701,113 @@
         </div>
     </header>
 
+    <!-- GLOBAL MAINTENANCE GATE: status dibaca dari Supabase agar berlaku di semua perangkat. -->
+    <style>
+        #maintenanceGate {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 99999;
+            background: #f8fafc;
+            overflow-y: auto;
+        }
+        #maintenanceGate .maintenance-card {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 16px;
+        }
+        body.maintenance-checking > header,
+        body.maintenance-checking > main,
+        body.maintenance-active > header,
+        body.maintenance-active > main {
+            display: none !important;
+        }
+    </style>
+    <div id="maintenanceGate">
+        <div class="maintenance-card">
+            <div class="max-w-xl w-full text-center bg-white rounded-3xl shadow-xl border border-gray-100 p-8 md:p-12">
+                <div class="mx-auto mb-6 w-20 h-20 rounded-full bg-amber-100 flex items-center justify-center text-4xl">🛠️</div>
+                <h2 class="text-3xl font-bold text-gray-800 mb-3">Website Sedang Maintenance</h2>
+                <p class="text-gray-600 leading-relaxed mb-6">
+                    Sistem absensi sedang dalam pemeliharaan. Silakan kembali beberapa saat lagi.
+                </p>
+                <a href="login.html" class="inline-flex items-center justify-center px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors">
+                    Login Admin
+                </a>
+            </div>
+        </div>
+    </div>
     <script>
-        // Periksa mode maintenance yang diset lewat panel admin (disimpan di localStorage)
-        (function(){
-            try {
-                const isMaintenance = localStorage.getItem('maintenanceMode') === '1';
-                if (isMaintenance) {
-                    const mainEl = document.querySelector('main.container');
-                    if (mainEl) {
-                        mainEl.innerHTML = `
-                            <div class="container mx-auto px-4 py-20 text-center">
-                                <h2 class="text-3xl font-bold text-gray-800 mb-4">Maintenance sedang berlangsung</h2>
-                                <p class="text-gray-600 mb-6">Website sedang dalam pemeliharaan. Silakan coba kembali nanti.</p>
-                            </div>
-                        `;
+        // Jangan gunakan localStorage. Status maintenance adalah global di Supabase.
+        (function () {
+            const GATE_ID = 'maintenanceGate';
+
+            function showNormalPage() {
+                document.body.classList.remove('maintenance-checking', 'maintenance-active');
+                const gate = document.getElementById(GATE_ID);
+                if (gate) gate.style.display = 'none';
+            }
+
+            function showMaintenancePage() {
+                document.body.classList.remove('maintenance-checking');
+                document.body.classList.add('maintenance-active');
+                const gate = document.getElementById(GATE_ID);
+                if (gate) gate.style.display = 'block';
+            }
+
+            async function readMaintenance() {
+                try {
+                    if (!window.supabase || !window.supabase.from) {
+                        showNormalPage();
+                        return;
                     }
+
+                    const { data, error } = await window.supabase
+                        .from('app_settings')
+                        .select('maintenance')
+                        .eq('id', 1)
+                        .maybeSingle();
+
+                    if (error) throw error;
+                    if (data && data.maintenance === true) {
+                        showMaintenancePage();
+                    } else {
+                        showNormalPage();
+                    }
+                } catch (error) {
+                    // Jika tabel belum dibuat / query gagal, jangan mengunci website.
+                    console.warn('Maintenance check gagal:', error);
+                    showNormalPage();
                 }
-            } catch (e) { console.error('Maintenance check error', e); }
+            }
+
+            async function initMaintenance() {
+                document.body.classList.add('maintenance-checking');
+                await readMaintenance();
+
+                // Dengarkan perubahan dari admin/perangkat lain.
+                if (window.supabase && window.supabase.channel) {
+                    window.supabase
+                        .channel('global-maintenance')
+                        .on(
+                            'postgres_changes',
+                            { event: '*', schema: 'public', table: 'app_settings', filter: 'id=eq.1' },
+                            (payload) => {
+                                const enabled = payload?.new?.maintenance === true;
+                                enabled ? showMaintenancePage() : showNormalPage();
+                            }
+                        )
+                        .subscribe();
+                }
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initMaintenance);
+            } else {
+                initMaintenance();
+            }
         })();
     </script>
 
@@ -887,7 +992,7 @@
                     </div>
                 </div>
                 
-                <div class="overflow-x-auto">
+                <div class="monthly-report-scroll rounded-xl" aria-label="Geser tabel rekap bulanan ke kiri atau kanan">
                     <table id="monthlyReportTable" class="monthly-report-table">
                         <!-- Monthly report will be generated here -->
                         <tr>
@@ -1130,7 +1235,7 @@
 
             // Status login disimpan di browser, sehingga admin tidak perlu
             // memasukkan kredensial lagi saat kembali membuka halaman ini.
-            isAdmin = localStorage.getItem('isAdminLoggedIn') === 'true';
+=== 'true';
 
             const loginBtnEl = document.getElementById('loginBtn');
             if (isAdmin && loginBtnEl) {
@@ -1138,7 +1243,6 @@
                     <a href="admin.html" class="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all">Panel Admin</a>
                     <button id="headerLogoutBtn" type="button" class="flex items-center gap-2 bg-red-500/90 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all">Logout</button>`;
                 document.getElementById('headerLogoutBtn').addEventListener('click', () => {
-                    localStorage.removeItem('isAdminLoggedIn');
                     isAdmin = false;
                     window.location.reload();
                 });
@@ -1163,7 +1267,6 @@
                     
                     if (username === 'admin' && password === 'gurutahta') {
                         isAdmin = true;
-                        localStorage.setItem('isAdminLoggedIn', 'true');
                         showNotification('success', 'Login berhasil!');
                         closeLoginModal();
                         showPage(3);
@@ -1185,7 +1288,6 @@
             if (logoutBtnEl) {
                 logoutBtnEl.addEventListener('click', function() {
                     isAdmin = false;
-                    localStorage.removeItem('isAdminLoggedIn');
                     adminDataFetched = false;
                     if (loginBtnEl) loginBtnEl.textContent = 'Login Admin';
                     showPage(1);
